@@ -1,0 +1,1269 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>guitar-coach · 跟弹练习</title>
+<style>
+  :root{
+    --paper:#f6f1e7; --sheet:#fbf8f1; --paper-deep:#ece5d6;
+    --ink:#3b2f27; --ink-2:#5a4b40; --ink-3:#6e6054; --staff:rgba(70,56,46,.58); --hair:rgba(70,56,46,.2);
+    --pencil:#8f867c; --pen:#33528f; --tick:#3a7d55; --margin:#9db3cf;
+    --hl:rgba(255,210,40,.62); --hl-soft:rgba(255,210,40,.32);
+    --lift:0 1px 1px rgba(70,50,30,.05),0 6px 18px -12px rgba(70,50,30,.28);
+    --serif:Georgia,"Songti SC",STSong,"Noto Serif CJK SC",SimSun,serif;
+    --title:"Source Han Serif SC Heavy","Noto Serif CJK SC","Songti SC",STSong,SimSun,serif;
+    --num:Cambria,"Times New Roman","Songti SC",STSong,serif;
+    --hand:STKaiti,KaiTi,"Kaiti SC",serif;
+    --mono:Consolas,"Cascadia Mono",ui-monospace,monospace;
+    --ease:cubic-bezier(.25,.8,.25,1);
+    --sp:18px; --nw:66px; --clefw:112px;
+  }
+  *{box-sizing:border-box}
+  html{overflow-x:hidden}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;color:var(--ink);
+       font:14px/1.55 var(--serif);background-color:var(--paper);position:relative;
+       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .3 0 0 0 0 .2 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  /* notebook margin: punched holes + a soft margin rule */
+  body::before{content:"";position:fixed;left:30px;top:0;bottom:0;width:1px;background:var(--margin);opacity:.55;pointer-events:none}
+  .holes{position:fixed;left:9px;top:0;bottom:0;width:14px;display:flex;flex-direction:column;justify-content:space-around;pointer-events:none;z-index:6}
+  .holes i{width:13px;height:13px;border-radius:50%;background:var(--paper-deep);box-shadow:inset 0 1px 2px rgba(70,50,30,.35)}
+  body>*{min-width:0}
+  ::selection{background:var(--hl);color:var(--ink)}
+  :focus-visible{outline:1.5px dashed var(--pen);outline-offset:3px;border-radius:8px}
+  ::-webkit-scrollbar{height:8px;width:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(70,56,46,.22);border-radius:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  .sc{font-size:11.5px;letter-spacing:.18em;color:var(--ink-3)}
+  svg{stroke-linecap:round;stroke-linejoin:round}
+
+  /* ---------- running head + title block ---------- */
+  header{display:flex;align-items:baseline;gap:18px;padding:12px 56px 0 64px;color:var(--ink-3)}
+  header .spacer{flex:1}
+  #check,#status{font-size:12.5px;color:var(--ink-2)}
+  #check.ok{color:var(--tick)}
+  #check.warn{background:linear-gradient(transparent 55%,var(--hl) 55%,var(--hl) 92%,transparent 92%)}
+  #status{font-style:italic}
+  #status.live{color:var(--pen)}
+  .head-rule{margin:8px 56px 0 64px;border:0;border-top:1px solid var(--hair)}
+
+  .titleblock{padding:10px 56px 0 64px;display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:12px}
+  h1{grid-column:2;margin:0;font:400 32px/1.15 var(--title);letter-spacing:.06em;text-align:center;color:var(--ink)}
+  .tempo{font:italic 15px var(--serif)}
+  .tempo b{font:600 16px var(--num);font-style:normal}
+  .tuning{text-align:right;font-size:12.5px;color:var(--ink-2)}
+  .meta{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 22px;margin:4px 56px 0 64px;font-size:12.5px;color:var(--ink-3)}
+  .meta b{font:600 13px var(--num);color:var(--ink-2)}
+  .meta .modeb{font-family:var(--serif)}
+  #inputWarn{display:none;align-items:baseline;gap:12px;margin:8px 56px 0 64px;padding:8px 16px;
+             border:1px solid var(--hair);border-radius:12px;background:var(--sheet);box-shadow:var(--lift);
+             font:15px/1.55 var(--hand);color:var(--ink)}
+  #inputWarn.show{display:flex}
+  #inputWarn .sc{flex:none;margin-top:2px}
+  #inputWarn .txt{flex:1}
+  @media (max-width:760px){
+    #inputWarn{margin-left:16px;margin-right:16px}
+  }
+
+  /* ---------- the staff ---------- */
+  main{padding:4px 56px 0 64px;position:relative}
+  #prompt{display:flex;align-items:baseline;gap:16px;position:relative;max-height:0;overflow:hidden;opacity:0;
+          margin:0 0 0 var(--clefw);font:17px var(--hand);color:var(--pen);transition:max-height .35s var(--ease),opacity .3s var(--ease)}
+  #prompt.show{max-height:40px;opacity:1}
+  #prompt .spacer{display:none}
+  #prompt button{font:16px var(--hand);color:var(--pen);background:none;border:0;padding:0 4px;cursor:pointer;border-radius:6px;
+                 text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+  #prompt button:hover{background:var(--hl-soft)}
+  #prompt small{font:13px var(--serif);color:var(--ink-3);font-style:italic}
+  #prompt .timer{position:absolute;left:0;bottom:2px;height:1.5px;border-radius:2px;width:260px;background:var(--pen);opacity:.45;
+                 transform-origin:left;transform:scaleX(0)}
+  #prompt.show .timer{animation:drain 6s linear forwards}
+  @keyframes drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+  .lane-wrap{position:relative}
+  #lane{display:flex;flex-wrap:wrap;align-items:flex-start;row-gap:0;overflow-x:auto;scroll-behavior:smooth;padding:0 0 2px}
+  .measure{display:flex;flex:0 0 auto}
+  .note,.bar-line,.clef{flex:0 0 auto;display:flex;flex-direction:column}
+  .top{height:30px;position:relative}
+  .st{height:calc(var(--sp) * 5 + 1px);position:relative;
+      background-image:repeating-linear-gradient(to bottom,var(--staff) 0 1px,transparent 1px var(--sp));
+      background-size:100% calc(var(--sp) * 5 + 1px);background-repeat:no-repeat}
+  .bot{height:66px;position:relative}
+
+  .clef{width:var(--clefw)}
+  .clef .tab{position:absolute;left:34px;top:4px;display:flex;flex-direction:column;align-items:center;font:700 25px/28px var(--num)}
+  .clef .tune{position:absolute;left:2px;top:0;font:italic 12px var(--serif);color:var(--ink-2)}
+  .clef .tune span{position:absolute;left:0;transform:translateY(-50%);background:var(--paper);padding:0 2px;border-radius:4px}
+  .clef .meter4{position:absolute;right:8px;top:0;height:100%;display:flex;flex-direction:column;justify-content:space-around;
+                font:700 36px/1 var(--num);background:var(--paper);padding:0 3px;border-radius:6px}
+  .clef .st::before{content:"";position:absolute;left:0;top:0;width:1.5px;border-radius:2px;height:100%;background:var(--ink-2)}
+
+  .bar-line{width:30px}
+  .bar-line .st i{position:absolute;top:0;height:100%;background:var(--ink-2);border-radius:2px}
+  .bar-line .st .l1{left:14px;width:1.2px}
+  .bar-line .st .l2,.bar-line .st .dots{display:none}
+  .bar-line .top span{position:absolute;left:12px;bottom:3px;font:italic 12.5px var(--serif);color:var(--ink-3)}
+  .bar-line.phrase .st .l2{display:block;left:18px;width:1.2px}
+  .bar-line.loop-start .st .l1{left:8px;width:4px}
+  .bar-line.loop-start .st .l2{display:block;left:14px;width:1.2px}
+  .bar-line.loop-start .st .dots{display:block;left:18px}
+  .bar-line.loop-end .st .l1{left:14px;width:1.2px}
+  .bar-line.loop-end .st .l2{display:block;left:18px;width:4px}
+  .bar-line.loop-end .st .dots{display:block;left:7px}
+  .bar-line .st .dots{width:4px;background:none!important}
+  .bar-line .st .dots::before,.bar-line .st .dots::after{content:"";position:absolute;left:0;width:4.5px;height:4.5px;border-radius:50%;background:var(--ink-2)}
+  .bar-line .st .dots::before{top:calc(var(--sp) * 2.5 - var(--sp) / 2 - 2px)}
+  .bar-line .st .dots::after{top:calc(var(--sp) * 2.5 + var(--sp) / 2 - 2px)}
+  .bar-line.loop .top span{color:var(--pen);font-weight:600}
+  .bar-line.final{width:30px}
+  .bar-line.final .st .l1{left:10px;width:1.2px}
+  .bar-line.final .st .l2{display:block;left:14px;width:4px}
+  .bar-line.final.loop-end .st .l1{left:14px} .bar-line.final.loop-end .st .l2{left:18px}
+  .bar-line.final .top span{display:none}
+
+  .note{width:var(--nw);position:relative}
+  .fret{position:absolute;left:50%;transform:translate(-50%,-50%);z-index:2;
+        font:500 19px/1 var(--num);padding:1px 5px;background:var(--paper);color:var(--ink);border-radius:6px;transition:color .3s var(--ease)}
+  .fret .hl{position:absolute;left:-4px;right:-4px;top:-2px;bottom:-2px;z-index:3;mix-blend-mode:multiply;
+            background:var(--hl);border-radius:5px 10px 6px 11px / 9px 5px 10px 6px;transform:rotate(-5deg) scaleX(0);
+            transform-origin:left center;transition:transform .35s var(--ease)}
+  .fret .ring{position:absolute;left:50%;top:50%;width:50px;height:38px;transform:translate(-50%,-52%) rotate(-6deg);overflow:visible;pointer-events:none;z-index:4}
+  .fret .ring path{fill:none;stroke:var(--pen);stroke-width:1.6;stroke-dasharray:100;stroke-dashoffset:100;opacity:0;
+                   transition:stroke-dashoffset .45s var(--ease),opacity .15s}
+  .note.current .fret .ring path{stroke-dashoffset:0;opacity:1}
+  .tick{position:absolute;left:50%;margin-left:8px;width:16px;height:14px;overflow:visible;z-index:4}
+  .tick path{fill:none;stroke:var(--tick);stroke-width:1.8;stroke-dasharray:30;stroke-dashoffset:30;opacity:0;transition:stroke-dashoffset .3s var(--ease),opacity .15s}
+  .note.hit .tick path{stroke-dashoffset:0;opacity:1}
+  .stem{position:absolute;left:calc(var(--nw) / 2);top:6px;width:1.2px;height:26px;background:var(--ink-2);border-radius:2px}
+  .stem.none{display:none}
+  .stem.half{height:18px}
+  .stem.flag::after{content:"";position:absolute;left:0;bottom:0;width:10px;height:8px;border-top:1.5px solid var(--ink-2);border-radius:0 6px 0 0;transform:skewY(-20deg)}
+  .note .name{position:absolute;left:0;right:0;top:38px;text-align:center;font:12.5px var(--num);color:var(--ink-3)}
+  .note .mark{position:absolute;left:-2px;right:-2px;top:53px;text-align:center;font:14px/1.15 var(--hand);white-space:nowrap}
+  .note.next .name{color:var(--ink);text-decoration:underline dotted var(--pencil);text-underline-offset:3px}
+  .note.in-loop .top::after{content:"";position:absolute;left:0;right:0;bottom:10px;border-top:1.5px solid var(--pencil);opacity:.6}
+  .note.hit .mark{color:var(--tick)}
+  /* lenient level: never red. pitch / string hints get a highlighter swipe */
+  .note.wrong_pitch .hl{transform:rotate(-5deg) scaleX(1)}
+  .note.wrong_string .hl{transform:rotate(-5deg) scaleX(1);background:var(--hl-soft)}
+  .note.wrong_pitch .mark,.note.wrong_string .mark{color:var(--ink-2)}
+  .note.missed .fret,.note.missed .mark{color:var(--pencil)}
+  .note.skipped .fret{color:var(--pencil);text-decoration:line-through;text-decoration-color:var(--pencil)}
+  .note.skipped .mark{color:var(--pencil);font:italic 12px var(--serif)}
+  .note.skipped .stem{background:var(--pencil)}
+  .note.flagged .fret{outline:1.5px dashed #c8a000;outline-offset:2px}
+  @keyframes flash{0%{transform:rotate(-5deg) scaleX(1);opacity:1}100%{transform:rotate(-5deg) scaleX(1);opacity:0}}
+  .note.flash .hl{animation:flash .8s var(--ease)}
+  #countin{position:absolute;left:calc(var(--clefw) - 38px);top:-8px;font:48px/1 var(--hand);color:var(--pen);opacity:0;pointer-events:none;transition:opacity .2s var(--ease)}
+  #countin.show{opacity:1}
+  #issues{margin:0 0 0 var(--clefw);font-size:12.5px;color:var(--ink-2);font-style:italic}
+  #issues:not(:empty)::before{content:"* "}
+  #issues:empty{display:none}
+
+  /* ---------- notebook area ---------- */
+  .book{flex:1;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) minmax(0,1fr);gap:18px;
+        margin:6px 56px 16px 64px;align-items:stretch}
+  .sheet{background:var(--sheet);border:1px solid var(--hair);border-radius:14px;box-shadow:var(--lift);padding:12px 16px 13px;
+         display:flex;flex-direction:column;gap:9px}
+  .sheet h2{margin:0;font-weight:400}
+  .sheet .sub{display:flex;flex-direction:column;gap:8px}
+  .sheet .sub + .sub{border-top:1px dashed var(--hair);padding-top:10px}
+  .col{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .col > .sheet{flex:1}
+  .col.c3 > .session{flex:0 0 auto}
+
+  /* fretboard */
+  #fretboard{width:100%;max-width:440px;height:auto;display:block;margin:0 auto}
+  #fretboard .wood{fill:#efe6d3}
+  #fretboard .string{stroke:var(--ink-2);opacity:.6}
+  #fretboard .wire{stroke:var(--ink-3);stroke-width:1.2;opacity:.55}
+  #fretboard .nut{stroke:var(--ink-2);stroke-width:4}
+  #fretboard .inlay{fill:var(--ink-3);opacity:.18}
+  #fretboard .fnum{font:10px var(--num);fill:var(--ink-3)}
+  #fretboard .slab{font:italic 10.5px var(--serif);fill:var(--ink-2)}
+  #fretboard .tgt{fill:none;stroke:var(--pen);stroke-width:2}
+  #fretboard .tgt-txt{font:600 10px var(--num);fill:var(--pen)}
+  #fretboard .act{fill:#6b4a2e}
+  #fretboard .act-txt{font:600 10px var(--num);fill:#fbf8f1}
+  #fretboard .same-ring{fill:none;stroke:var(--pen);stroke-width:2}
+  #fretboard .same-dot{fill:#6b4a2e}
+  #fretboard .nxt{fill:none;stroke:var(--pencil);stroke-width:1.4;stroke-dasharray:2.5 2.5}
+  .fb-cap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--ink-2)}
+  .fb-cap b{font:600 13.5px var(--num);color:var(--ink)}
+  .fb-leg{display:flex;gap:14px;font-size:12px;color:var(--ink-3);align-items:center}
+  .fb-leg span{display:inline-flex;align-items:center;gap:5px}
+  .fb-leg svg{flex:none;overflow:visible}
+
+  /* tuner */
+  .heard-row{display:flex;align-items:flex-end;gap:22px}
+  #heardName{font:400 36px/1 var(--num);min-width:70px}
+  #heardName.idle{color:var(--pencil)}
+  .meter{position:relative;flex:1;height:42px}
+  .meter .ruler{position:absolute;left:0;right:0;top:16px;height:10px;border-top:1.2px solid var(--ink-2);border-radius:2px}
+  .meter .ruler i{position:absolute;top:0;width:1.2px;height:6px;background:var(--ink-3);border-radius:2px}
+  .meter .ruler i.big{height:10px;background:var(--ink-2)}
+  .meter .ends{position:absolute;left:0;right:0;top:28px;display:flex;justify-content:space-between;font:11px var(--num);color:var(--ink-3)}
+  .meter .needle{position:absolute;top:1px;left:50%;width:12px;height:13px;margin-left:-6px;transition:left .35s var(--ease)}
+  .meter .needle svg{display:block;width:12px;height:13px}
+  .meter .needle path{fill:var(--pencil);stroke:var(--pencil);stroke-width:2;transition:fill .2s,stroke .2s}
+  .meter.active .needle path{fill:var(--pen);stroke:var(--pen)}
+  .readout{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+  .readout b{font:600 13.5px var(--num);color:var(--ink)}
+  #ticker{font:12px/1.4 var(--mono);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* bar map */
+  #barmap{display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:6px}
+  .bm{border:1px solid var(--hair);border-radius:10px;padding:6px 8px 7px;cursor:pointer;background:transparent;
+      display:flex;flex-direction:column;gap:5px;text-align:left;transition:border-color .25s var(--ease),background .25s var(--ease)}
+  .bm:hover{background:rgba(70,56,46,.04)}
+  .bm .h{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink-3)}
+  .bm .h b{font:600 13px var(--num);color:var(--ink-2)}
+  .bm .dots{display:flex;gap:4px;flex-wrap:wrap}
+  .bm .dots i{width:9px;height:9px;border-radius:50%;border:1.2px solid var(--pencil);opacity:.55}
+  .bm .dots i.hit{background:var(--tick);border-color:var(--tick);opacity:1}
+  .bm .dots i.wrong_pitch{background:#f1c232;border-color:#d8a60f;opacity:1}
+  .bm .dots i.wrong_string{background:var(--hl-soft);border-color:#d8a60f;opacity:1}
+  .bm .dots i.missed{background:var(--pencil);border-color:var(--pencil);opacity:.7}
+  .bm .dots i.skipped{border-style:dashed;opacity:.5}
+  .bm .pct{font:13px var(--hand);color:var(--ink-3);min-height:16px}
+  .bm.cur{border-color:var(--pen);border-width:1.5px;padding:5.5px 7.5px 6.5px}
+  .bm.cur .h{color:var(--pen)}
+  .bm.inloop{background:rgba(51,82,143,.05)}
+  .phr{font-size:12px;color:var(--ink-3)}
+
+  /* history */
+  #history{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  #history li{display:grid;grid-template-columns:34px 44px 1fr auto;gap:8px;align-items:baseline;padding:4px 2px;border-bottom:1px dotted var(--hair);font-size:12.5px;color:var(--ink-2);
+              animation:in .4s var(--ease)}
+  @keyframes in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+  #history li .i{font:12px var(--num);color:var(--ink-3)}
+  #history li .n{font:600 13px var(--num);color:var(--ink)}
+  #history li .s{font:14px var(--hand)}
+  #history li .s.hit{color:var(--tick)}
+  #history li .s.wrong_pitch,#history li .s.wrong_string{background:linear-gradient(transparent 45%,var(--hl-soft) 45%,var(--hl-soft) 90%,transparent 90%)}
+  #history li .s.missed,#history li .s.skipped{color:var(--pencil)}
+  #history li .c{font:12px var(--num);color:var(--ink-3);white-space:nowrap}
+  #history li.empty{display:block;color:var(--pencil);font-style:italic;border:0;animation:none}
+
+  /* record */
+  .log{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
+  .log .row{display:flex;align-items:baseline;gap:8px;padding:2px 0;border-bottom:1px solid var(--hair)}
+  .log .row .k{white-space:nowrap;font-size:13.5px}
+  .log .row .lead{flex:1;border-bottom:1px dotted var(--pencil);transform:translateY(-4px);opacity:.6}
+  .log .row b{font:600 16px var(--num)}
+  .log .row.acc{grid-column:1 / -1}
+  .log .row.acc b{font:400 28px/1.1 var(--num)}
+  .log .row.w b{background:linear-gradient(transparent 55%,var(--hl-soft) 55%);border-radius:3px}
+  #loopInfo{font-size:13px}
+  .session.done #acc{font-family:var(--hand);color:var(--pen)}
+
+  /* notes margin */
+  .rules{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;font:14px/1.45 var(--hand);color:var(--ink-2)}
+  .rules li{position:relative;padding-left:16px}
+  .rules li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;border-radius:50%;border:1.3px solid var(--pen)}
+  .rules em{font-style:normal;background:linear-gradient(transparent 50%,var(--hl-soft) 50%);border-radius:3px}
+  .legend{display:grid;grid-template-columns:repeat(3,auto);justify-content:space-between;gap:5px 10px;border-top:1px dashed var(--hair);padding-top:8px;font-size:12.5px;color:var(--ink-2)}
+  .legend span{display:flex;align-items:center;gap:8px}
+  .legend svg{width:26px;height:18px;flex:none;overflow:visible}
+  .keys{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink-2)}
+  kbd{display:inline-block;min-width:24px;text-align:center;font:12px/20px var(--num);padding:0 7px;border:1px solid var(--hair);border-bottom-width:2px;border-radius:7px;background:var(--sheet);color:var(--ink-2);margin-right:4px}
+
+  /* ---------- controls: soft stationery ---------- */
+  footer{position:sticky;bottom:0;z-index:5;padding:10px 56px 14px 64px;background:var(--paper);border-top:1px solid var(--hair);
+         box-shadow:0 -6px 16px -14px rgba(70,50,30,.35)}
+  .scrub-row{display:flex;align-items:center;gap:16px;margin-bottom:10px}
+  .scrub-wrap{position:relative;flex:1;height:30px}
+  .scrub-ticks{position:absolute;left:8px;right:8px;top:14px;height:16px;pointer-events:none}
+  .scrub-ticks i{position:absolute;top:-4px;width:1.2px;height:8px;border-radius:2px;background:var(--ink-3);font:normal 10.5px/1 var(--num);color:var(--ink-3)}
+  .scrub-ticks i span{position:absolute;top:10px;left:0;transform:translateX(-50%)}
+  .scrub-ticks i.lp{background:var(--pen);height:12px;top:-6px}
+  #scrubLabel{min-width:72px;text-align:right;font-size:13px;color:var(--ink-2)}
+  #scrubLabel.dragging{color:var(--pen)}
+  input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;margin:0;cursor:pointer;height:20px}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:linear-gradient(90deg,var(--ink-2) var(--fill,0%),rgba(70,56,46,.16) var(--fill,0%))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;background:var(--sheet);border:1.5px solid var(--ink-2);
+       box-shadow:0 1px 3px rgba(70,50,30,.25);transition:transform .2s var(--ease)}
+  input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.1)}
+  input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:rgba(70,56,46,.16)}
+  input[type=range]::-moz-range-progress{height:4px;border-radius:4px;background:var(--ink-2)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--sheet);border:1.5px solid var(--ink-2)}
+  #scrub{position:absolute;left:0;right:0;top:0;width:100%}
+
+  .controls{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  .group{display:flex;gap:8px;align-items:center}
+  .group-label{margin-right:4px}
+  .sep{display:none}
+  button{font:14px var(--serif);color:var(--ink);background:var(--sheet);border:1px solid rgba(70,56,46,.35);border-radius:10px;
+         padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+         box-shadow:0 1px 0 rgba(70,50,30,.08);transition:background .25s var(--ease),border-color .25s var(--ease),transform .15s var(--ease)}
+  button:hover{background:#fffdf8;border-color:rgba(70,56,46,.55)}
+  button:active{transform:translateY(1px)}
+  button svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7}
+  button.on{color:var(--pen);border-color:var(--pen)}
+  #play{min-width:104px;justify-content:center;background:var(--ink);border-color:var(--ink);color:#fbf6ec;font-size:15px;letter-spacing:.08em;border-radius:999px;padding:7px 18px}
+  #play:hover{background:#4c3d32}
+  #play svg{fill:currentColor}
+  #play .i-pause{display:none}
+  #play.is-playing .i-play{display:none}
+  #play.is-playing .i-pause{display:block}
+  #back,#fwd{border-radius:999px}
+  .seg{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:999px}
+  .seg .slash{color:var(--ink-3)}
+  .seg span[data-m]{position:relative;padding:4px 8px;color:var(--ink-3);transition:color .25s var(--ease)}
+  .seg span[data-m].active{color:var(--ink)}
+  .seg span[data-m] svg{position:absolute;left:-3px;top:-2px;width:calc(100% + 6px);height:calc(100% + 4px);overflow:visible}
+  .seg span[data-m] svg path{fill:none;stroke:var(--pen);stroke-width:1.5;stroke-dasharray:100;stroke-dashoffset:100;opacity:0;transition:stroke-dashoffset .45s var(--ease),opacity .15s}
+  .seg span[data-m].active svg path{stroke-dashoffset:0;opacity:1}
+  #mode{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .seg:focus-within{outline:1.5px dashed var(--pen);outline-offset:3px}
+  #setA,#setB{min-width:44px;justify-content:center;font-family:var(--num);border-radius:999px}
+  #clearLoop{border-color:transparent;background:transparent;box-shadow:none;color:var(--ink-3);text-decoration:underline;text-underline-offset:3px;padding-left:4px;padding-right:4px}
+  #speed{width:120px}
+  #speedLabel{min-width:42px;font:600 14px var(--num)}
+
+  @media (max-width:1180px){
+    .book{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .col.c3{grid-column:1 / -1;flex-direction:row}
+    .col.c3 > .sheet{flex:1}
+  }
+  @media (max-width:760px){
+    :root{--nw:52px;--clefw:64px}
+    body::before,.holes{display:none}
+    header,.titleblock,main,footer{padding-left:16px;padding-right:16px}
+    .head-rule,.meta{margin-left:16px;margin-right:16px}
+    .book{margin-left:16px;margin-right:16px;grid-template-columns:minmax(0,1fr)}
+    .col.c3{flex-direction:column}
+    .clef .meter4{display:none}
+    .clef .tab{left:24px}
+    .note .mark{font-size:12px}
+    .titleblock{grid-template-columns:1fr;text-align:center}
+    h1{grid-column:1;font-size:26px}
+    .tuning{text-align:center}
+    .controls{gap:12px}
+    header .brandname{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="holes" aria-hidden="true"><i></i><i></i><i></i></div>
+<header>
+  <span class="sc brandname">GUITAR-COACH · 练习本</span>
+  <span class="spacer"></span>
+  <span id="check">谱面检查中</span>
+  <span id="status">未开始</span>
+</header>
+<hr class="head-rule">
+<div class="titleblock">
+  <div class="tempo" id="tempo">♩ = <b>80</b></div>
+  <h1 id="title">guitar-coach</h1>
+  <div class="tuning" id="tuning">标准调弦 E A D G B E · 4/4</div>
+</div>
+<div class="meta" id="meta"></div>
+<div id="inputWarn" role="status" hidden><span class="sc">输入</span><span class="txt" id="inputWarnText"></span></div>
+
+<main>
+  <div id="prompt" role="status" aria-live="polite">
+    <span>退回上一小节？</span>
+    <button id="promptBack">退回</button><button id="promptGo">继续</button>
+    <small>谱面继续走，不点就当继续</small>
+    <span class="spacer"></span>
+    <div class="timer"></div>
+  </div>
+  <div class="lane-wrap">
+    <div id="lane"></div>
+    <div id="countin" aria-hidden="true"></div>
+  </div>
+  <div id="issues"></div>
+</main>
+
+<section class="book">
+  <div class="col c1">
+    <div class="sheet">
+      <div class="sub">
+        <h2 class="sc">指板位置</h2>
+        <svg id="fretboard" viewBox="0 0 360 118" aria-label="当前待弹音在指板上的位置"></svg>
+        <div class="fb-cap">
+          <span>该按 <b id="fbNow">--</b></span>
+          <span>按在 <b id="fbHeard">--</b></span>
+          <span>下一个 <b id="fbNext">--</b></span>
+        </div>
+        <div class="fb-leg" aria-hidden="true">
+          <span><svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="#33528f" stroke-width="1.8"/></svg>该按</span>
+          <span><svg width="16" height="16"><circle cx="8" cy="8" r="5.5" fill="#6b4a2e"/></svg>按在</span>
+          <span><svg width="16" height="16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#33528f" stroke-width="1.6"/><circle cx="8" cy="8" r="3.8" fill="#6b4a2e"/></svg>按对</span>
+        </div>
+      </div>
+      <div class="sub tuner" aria-label="实时音高">
+        <h2 class="sc">听到的音</h2>
+        <div class="heard-row">
+          <div id="heardName" class="idle">—</div>
+          <div class="meter" id="meter" aria-hidden="true">
+            <div class="needle" id="needle"><svg viewBox="0 0 12 13"><path d="M2 2h8L6 11z"/></svg></div>
+            <div class="ruler" id="ruler"></div>
+            <div class="ends"><span>−50</span><span>音分</span><span>+50</span></div>
+          </div>
+        </div>
+        <div class="readout">
+          <span>偏差 <b id="cents">--</b></span>
+          <span>延迟 <b id="lat">--</b></span>
+          <span>目标 <b id="target">--</b></span>
+        </div>
+        <div id="ticker">等待开始…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col c2">
+    <div class="sheet">
+      <div class="sub">
+        <h2 class="sc">各小节</h2>
+        <div id="barmap"></div>
+        <div class="phr" id="phraseInfo"></div>
+      </div>
+      <div class="sub">
+        <h2 class="sc">最近判定</h2>
+        <ul id="history"><li class="empty">开始弹奏后，这里记下每个音的判定。</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="col c3">
+    <div class="sheet session" id="session" aria-label="本段统计">
+      <h2 class="sc">本段记录</h2>
+      <div class="log">
+        <div class="row acc"><span class="k">本段准确率</span><span class="lead"></span><b id="acc">--</b></div>
+        <div class="row w"><span class="k">音高偏差</span><span class="lead"></span><b id="nWrong">0</b></div>
+        <div class="row"><span class="k">漏音</span><span class="lead"></span><b id="nMiss">0</b></div>
+        <div class="row"><span class="k">弦位提示</span><span class="lead"></span><b id="nString">0</b></div>
+        <div class="row"><span class="k">小节</span><span class="lead"></span><b id="prog">-</b></div>
+        <div class="row"><span class="k">速度</span><span class="lead"></span><b id="speedNow">0.70x</b></div>
+        <div class="row"><span class="k">循环</span><span class="lead"></span><span id="loopInfo">未设</span></div>
+      </div>
+    </div>
+    <div class="sheet">
+      <h2 class="sc">练习备忘</h2>
+      <ul class="rules">
+        <li>宽松档：出错<em>只标黄</em>，不停、不弹窗。</li>
+        <li>准确率 = 对 ÷（对 + 音高不准），漏音、弦位只记数。</li>
+        <li>连错 5 音或一小节错一半以上，轻声问「退回上一小节？」</li>
+        <li>等待模式：弹对才前进，错了黄闪一下。</li>
+      </ul>
+      <div class="legend">
+        <span><svg viewBox="0 0 26 18"><path d="M17 2.5C24 3.5 25.5 9 23 13.5 19.5 17.5 6 17.5 2.5 12.5 0.5 8 4 3 10 2.2 14 1.8 18 2.2 20 4" fill="none" stroke="#33528f" stroke-width="1.5"/><text x="13" y="12.5" text-anchor="middle" font-size="10" font-family="Cambria" fill="#3b2f27">5</text></svg>当前要弹</span><span><svg viewBox="0 0 26 18"><path d="M6 9.5 10.5 14 20 3" fill="none" stroke="#3a7d55" stroke-width="1.8"/></svg>对</span>
+        <span><svg viewBox="0 0 26 18"><rect x="3" y="3.5" width="20" height="11" rx="4" fill="rgba(255,210,40,.62)" transform="rotate(-5 13 9)"/><text x="13" y="13" text-anchor="middle" font-size="10" font-family="Cambria" fill="#3b2f27">7</text></svg>音高不准</span><span><svg viewBox="0 0 26 18"><rect x="3" y="3.5" width="20" height="11" rx="4" fill="rgba(255,210,40,.32)" transform="rotate(-5 13 9)"/><text x="13" y="13" text-anchor="middle" font-size="10" font-family="Cambria" fill="#3b2f27">7</text></svg>弦位不同</span>
+        <span><svg viewBox="0 0 26 18"><text x="13" y="13" text-anchor="middle" font-size="11" font-family="Cambria" fill="#8f867c">4</text></svg>漏了</span><span><svg viewBox="0 0 26 18"><text x="13" y="13" text-anchor="middle" font-size="11" font-family="Cambria" fill="#8f867c">9</text><path d="M7 9.5h12" stroke="#8f867c" stroke-width="1.2"/></svg>已跳过</span>
+      </div>
+      <div class="keys"><span><kbd>空格</kbd>播放 / 暂停</span><span><kbd>←</kbd>后退</span><span><kbd>→</kbd>快进</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="scrub-row">
+    <span class="sc">小节</span>
+    <div class="scrub-wrap">
+      <input id="scrub" type="range" min="0" max="0" step="1" value="0" title="按小节定位" aria-label="按小节定位">
+      <div class="scrub-ticks" id="scrubTicks"></div>
+    </div>
+    <span id="scrubLabel">第 1 小节</span>
+  </div>
+  <div class="controls">
+    <div class="group transport">
+      <button id="back" title="回到本小节开头；再按到上一小节">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3v10"/><path d="M12.5 4.2v7.6a.8.8 0 0 1-1.25.66L6 8.66a.8.8 0 0 1 0-1.32l5.25-3.8a.8.8 0 0 1 1.25.66z"/></svg>后退</button>
+      <button id="play">
+        <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.3v9.4a1 1 0 0 0 1.5.86l7.4-4.7a1 1 0 0 0 0-1.72L6.5 2.44A1 1 0 0 0 5 3.3z" stroke-width="1"/></svg>
+        <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.8" width="3" height="10.4" rx="1.4" stroke-width="0"/><rect x="9.5" y="2.8" width="3" height="10.4" rx="1.4" stroke-width="0"/></svg>
+        <span id="playText">播放</span></button>
+      <button id="fwd" title="跳到下一小节，跳过的音记为已跳过">快进
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 3v10"/><path d="M3.5 4.2v7.6a.8.8 0 0 0 1.25.66L10 8.66a.8.8 0 0 0 0-1.32L4.75 3.54a.8.8 0 0 0-1.25.66z"/></svg></button>
+    </div>
+    <div class="group">
+      <span class="sc group-label">模式</span>
+      <label class="seg" id="seg" data-mode="wait" title="跟弹：时间轴按倍速走；等待：弹对才前进">
+        <button id="mode" title="跟弹：时间轴按倍速走；等待：弹对才前进">等待</button>
+        <span data-m="follow">跟弹<svg viewBox="0 0 60 30" preserveAspectRatio="none" aria-hidden="true"><path pathLength="100" d="M41 2.5C54 3.5 59 10 57.5 18 55 27 20 29.5 6 24 0 20 1.5 8 15 4 24 1.5 40 1.5 50 5.5"/></svg></span><span class="slash">/</span><span data-m="wait" class="active">等待<svg viewBox="0 0 60 30" preserveAspectRatio="none" aria-hidden="true"><path pathLength="100" d="M41 2.5C54 3.5 59 10 57.5 18 55 27 20 29.5 6 24 0 20 1.5 8 15 4 24 1.5 40 1.5 50 5.5"/></svg></span>
+      </label>
+    </div>
+    <div class="group">
+      <span class="sc group-label">循环</span>
+      <button id="setA" title="以光标所在小节为循环起点">A</button>
+      <button id="setB" title="以光标所在小节为循环终点">B</button>
+      <button id="clearLoop">取消循环</button>
+    </div>
+    <div class="group">
+      <span class="sc group-label">速度</span>
+      <input id="speed" type="range" min="0.5" max="1" step="0.05" value="0.7" aria-label="练习速度">
+      <span id="speedLabel">0.70x</span>
+    </div>
+  </div>
+</footer>
+<script>
+const LABELS = {
+  hit: '对',
+  wrong_pitch: '音高不准',
+  wrong_string: '弦位不同',
+  missed: '漏了',
+  skipped: '已跳过',
+};
+const STATUSES = Object.keys(LABELS);
+const $ = id => document.getElementById(id);
+const lane = $('lane');
+
+let notes = [], els = [], statuses = [], cursor = 0;
+let speed = 0.7, mode = 'wait', loopA = null, loopB = null;
+let es = null, playing = false, pendingSkipFrom = null;
+let promptTarget = null, promptTimer = null;
+
+// ---------- bars ----------
+function barStart(index){
+  if (!notes.length) return 0;
+  index = Math.min(Math.max(index, 0), notes.length - 1);
+  const bar = notes[index].bar;
+  let i = index;
+  while (i > 0 && notes[i - 1].bar === bar) i--;
+  return i;
+}
+function rewindTo(index){
+  if (!notes.length) return 0;
+  if (index >= notes.length) return barStart(notes.length - 1);
+  index = Math.max(0, index);
+  const start = barStart(index);
+  if (index > start) return start;
+  return start === 0 ? 0 : barStart(start - 1);
+}
+function advanceFrom(index){
+  if (index >= notes.length) return {dest: notes.length, skipped: []};
+  const bar = notes[index].bar;
+  let dest = index;
+  while (dest < notes.length && notes[dest].bar === bar) dest++;
+  const skipped = [];
+  for (let i = index; i < dest; i++) skipped.push(i);
+  return {dest, skipped};
+}
+function barStarts(){ return notes.map((n, i) => i).filter(i => i === 0 || notes[i].bar !== notes[i - 1].bar); }
+function curBar(){ return notes.length ? notes[Math.min(cursor, notes.length - 1)].bar : 0; }
+
+// ---------- drawing ----------
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+const RING = '<svg class="ring" viewBox="0 0 44 34" aria-hidden="true"><path pathLength="100" d="M29 3.5C39 5 43.5 14 39.5 23.5 35 32 13 33.5 5.5 25 .5 18 4.5 6 16 3.2 23 1.8 31 2.5 35.5 6.5"/></svg>';
+const TICK = '<svg class="tick" viewBox="0 0 16 14" aria-hidden="true"><path pathLength="30" d="M1.5 7.5 6 12.5 14.5 1.5"/></svg>';
+const SP = 18;                       // staff spacing, matches --sp
+let beatSec = 0.75;
+function stemClass(n){
+  const beats = (n.dur || beatSec) / beatSec;
+  if (beats >= 3.9) return 'none';
+  if (beats >= 1.9) return 'half';
+  return beats <= 0.55 ? 'flag' : '';
+}
+function barLineEl(bar, extra){
+  const line = document.createElement('div');
+  line.className = 'bar-line' + (extra ? ' ' + extra : '');
+  line.dataset.bar = bar;
+  line.innerHTML = `<div class="top"><span>${bar + 1}</span></div>
+    <div class="st"><i class="l1"></i><i class="l2"></i><i class="dots"></i></div><div class="bot"></div>`;
+  return line;
+}
+function clefEl(score){
+  const c = document.createElement('div');
+  c.className = 'clef';
+  const m = score.meter || [4, 4];
+  c.innerHTML = `<div class="top"></div><div class="st">
+      <div class="tune">${[1,2,3,4,5,6].map((st, k) => `<span style="top:${k * SP}px">${openLetter(st, true)}</span>`).join('')}</div>
+      <div class="tab"><span>T</span><span>A</span><span>B</span></div>
+      <div class="meter4"><span>${m[0]}</span><span>${m[1]}</span></div>
+    </div><div class="bot"></div>`;
+  return c;
+}
+function build(score){
+  notes = score.notes || [];
+  statuses = notes.map(() => null);
+  beatSec = score.tempo ? 60 / score.tempo : 0.75;
+  if (score.title){ $('title').textContent = score.title; document.title = `${score.title} · guitar-coach`; }
+  if (score.tempo) $('tempo').innerHTML = `♩ = <b>${Math.round(score.tempo)}</b>`;
+  scoreMeter = score.meter || [4, 4];
+  setTuning(score.tuning);
+  paintTuningLabel();
+  lane.innerHTML = ''; els = [];
+  // one unbreakable .measure per bar so the staff wraps at bar lines, like a printed tab book
+  let measure = document.createElement('div');
+  measure.className = 'measure';
+  measure.appendChild(clefEl(score));
+  lane.appendChild(measure);
+  notes.forEach((n, i) => {
+    if (i === 0 || n.bar !== notes[i - 1].bar){
+      if (i > 0){ measure = document.createElement('div'); measure.className = 'measure'; lane.appendChild(measure); }
+      measure.appendChild(barLineEl(n.bar, i > 0 && n.phrase_id !== notes[i - 1].phrase_id ? 'phrase' : ''));
+    }
+    const y = n.string ? (n.string - 1) * SP + 0.5 : 2.5 * SP;
+    const d = document.createElement('div');
+    d.className = 'note';
+    d.title = `${n.name || midiName(n.midi)} · ${n.string ?? '-'} 弦 ${n.fret ?? '-'} 品`;
+    d.innerHTML = `<div class="top"></div>
+      <div class="st">
+        <span class="fret" style="top:${y}px">${esc(n.fret ?? '·')}<i class="hl"></i>${RING}</span>
+        <span class="tick-wrap" style="position:absolute;left:0;right:0;top:${y - 27}px">${TICK}</span>
+      </div>
+      <div class="bot"><i class="stem ${stemClass(n)}"></i>
+        <div class="name">${esc(n.name || midiName(n.midi))}</div><div class="mark"></div></div>`;
+    measure.appendChild(d); els.push(d);
+  });
+  if (notes.length) measure.appendChild(barLineEl(notes[notes.length - 1].bar + 1, 'final'));
+  const starts = barStarts();
+  $('scrub').max = Math.max(0, starts.length - 1);
+  $('scrubTicks').innerHTML = starts.map((s, k) =>
+    `<i style="left:${starts.length > 1 ? k / (starts.length - 1) * 100 : 0}%"><span>${notes[s].bar + 1}</span></i>`).join('');
+  showIssues(score.issues || []);
+  buildBarmap();
+  buildFretboard();
+  refresh();
+}
+
+// ---------- notebook extras (all derived from /score + live verdicts) ----------
+let verdictLog = [];
+const STANDARD_TUNING = {6:40, 5:45, 4:50, 3:55, 2:59, 1:64}; // E2 A2 D3 G3 B3 E4
+const PROFILE_LABELS = {loose: '宽松档', standard: '标准档', strict: '严格档'};
+let tuning = Object.assign({}, STANDARD_TUNING);
+let judgeProfile = null;   // from hello.profile; never hard-coded
+let heardPos = null;       // live actual fingering for the pending note
+let lastDiff = null;       // last target/actual pair that did not coincide
+
+function setTuning(raw){
+  // /score and hello.score: {"1": 64, ... "6": 40}. Keys may be strings.
+  // Fall back to standard EADGBE only when the field is missing or empty.
+  if (!raw || typeof raw !== 'object') return;
+  const next = {};
+  Object.keys(raw).forEach(k => {
+    const st = Number(k), m = Number(raw[k]);
+    if (st >= 1 && st <= 6 && Number.isFinite(m)) next[st] = m;
+  });
+  if (Object.keys(next).length) tuning = next;
+}
+function openLetter(string, tab){
+  const midi = tuning[string];
+  if (midi == null) return '-';
+  let letter = midiName(midi).replace(/-?\d+$/, '');
+  if (tab && string === 1) letter = letter.charAt(0).toLowerCase() + letter.slice(1);
+  return letter;
+}
+let scoreMeter = [4, 4];
+function isStandardTuning(){
+  return [1,2,3,4,5,6].every(st => tuning[st] === STANDARD_TUNING[st]);
+}
+function paintTuningLabel(){
+  const el = $('tuning'); if (!el) return;
+  const prefix = isStandardTuning() ? '标准调弦' : '调弦';
+  const names = [6,5,4,3,2,1].map(st => openLetter(st)).join(' ');
+  const m = scoreMeter || [4, 4];
+  el.textContent = `${prefix} ${names} · ${m[0]}/${m[1]}`;
+}
+function relabelOpenStrings(){
+  const letters = [1,2,3,4,5,6].map(st => openLetter(st, true));
+  document.querySelectorAll('.clef .tune').forEach(tune => {
+    [...tune.querySelectorAll('span')].forEach((sp, k) => { if (letters[k] != null) sp.textContent = letters[k]; });
+  });
+  document.querySelectorAll('#fretboard .slab').forEach((sp, k) => { if (letters[k] != null) sp.textContent = letters[k]; });
+}
+function inferFret(string, midi){
+  if (string == null || midi == null || !Number.isFinite(midi)) return null;
+  const open = tuning[string];
+  if (open == null) return null;
+  const fret = midi - open;
+  return (fret >= 0 && fret <= 24) ? fret : null;
+}
+function heardFingering(ev){
+  // Trust a hex string number when present (1–6). Omit means unknown.
+  if (ev == null || ev.string == null) return null;
+  const string = Number(ev.string);
+  if (string < 1 || string > 6) return null;
+  let fret = ev.fret;
+  if (fret == null && ev.midi != null) fret = inferFret(string, ev.midi);
+  if (fret != null){
+    fret = Number(fret);
+    if (!(fret >= 0 && fret <= 24)) fret = null;
+  }
+  return {string, fret, midi: ev.midi, name: ev.name};
+}
+function rememberHeard(ev){
+  const pos = heardFingering(ev);
+  if (pos){
+    heardPos = pos;
+    const tgt = notes[cursor];
+    if (tgt && pos.fret != null && !sameFingering(tgt, pos)) lastDiff = {target: tgt, actual: pos};
+  }
+  drawFretboard();
+}
+function clearHeard(){ heardPos = null; }
+
+function profileLabel(){
+  if (judgeProfile == null || judgeProfile === '') return null;
+  return PROFILE_LABELS[judgeProfile] || String(judgeProfile);
+}
+function applyDefaults(d){
+  // /score.defaults and hello.defaults: {mode, speed, profile}
+  if (!d || typeof d !== 'object') return;
+  if (d.mode === 'follow' || d.mode === 'wait'){
+    mode = d.mode;
+    paintMode();
+  }
+  if (typeof d.speed === 'number' && Number.isFinite(d.speed)){
+    speed = Math.min(1, Math.max(0.5, d.speed));
+    const sl = $('speed');
+    if (sl){ sl.value = speed; setFill(sl); }
+    if ($('speedLabel')) $('speedLabel').textContent = `${speed.toFixed(2)}x`;
+    if ($('speedNow')) $('speedNow').textContent = `${speed.toFixed(2)}x`;
+  }
+  if (d.profile != null && d.profile !== '') judgeProfile = d.profile;
+  updateMeta();
+}
+function showInputWarning(input){
+  const bar = $('inputWarn'), txt = $('inputWarnText');
+  if (!bar || !txt) return;
+  const msg = input && typeof input.warning === 'string' ? input.warning.trim() : '';
+  if (msg){
+    txt.textContent = msg;
+    bar.hidden = false;
+    bar.classList.add('show');
+  } else {
+    txt.textContent = '';
+    bar.hidden = true;
+    bar.classList.remove('show');
+  }
+}
+function applyHello(ev){
+  // live session fields win; defaults are only a fallback when a field is absent
+  if (ev.mode === 'follow' || ev.mode === 'wait'){
+    mode = ev.mode;
+    paintMode();
+  }
+  if (typeof ev.speed === 'number' && Number.isFinite(ev.speed) && ev.speed > 0){
+    speed = ev.speed > 1 && ev.speed <= 100 ? ev.speed : Math.min(1, Math.max(0.5, ev.speed));
+    // unthrottled tests use speed=0; leave the slider at the last practice value
+    if (ev.speed >= 0.5 && ev.speed <= 1){
+      const sl = $('speed');
+      if (sl){ sl.value = speed; setFill(sl); }
+      if ($('speedLabel')) $('speedLabel').textContent = `${speed.toFixed(2)}x`;
+      if ($('speedNow')) $('speedNow').textContent = `${speed.toFixed(2)}x`;
+    }
+  }
+  if (ev.profile != null) judgeProfile = ev.profile;
+  else if (ev.defaults && ev.defaults.profile != null) judgeProfile = ev.defaults.profile;
+  if (ev.input) showInputWarning(ev.input);
+  else if (ev.score && ev.score.input) showInputWarning(ev.score.input);
+  updateMeta();
+}
+
+function updateMeta(){
+  if (!notes.length){ $('meta').textContent = ''; return; }
+  const bars = notes[notes.length - 1].bar + 1;
+  const phrases = new Set(notes.map(n => n.phrase_id)).size;
+  const prof = profileLabel();
+  $('meta').innerHTML = `<span>共 <b>${bars}</b> 小节</span><span><b>${notes.length}</b> 个音</span>` +
+    `<span><b>${phrases}</b> 个乐句</span><span>模式 <b class="modeb">${mode === 'follow' ? '跟弹' : '等待'}</b></span>` +
+    `<span>速度 <b>${speed.toFixed(2)}x</b></span>` +
+    (prof ? `<span>判定 <b class="modeb">${esc(prof)}</b></span>` : '');
+}
+function barStats(bar){
+  const c = {hit:0, wrong_pitch:0, wrong_string:0, missed:0, skipped:0};
+  notes.forEach((n, i) => { if (n.bar === bar && statuses[i]) c[statuses[i]]++; });
+  const d = c.hit + c.wrong_string + c.wrong_pitch;
+  return d ? Math.round((c.hit + c.wrong_string) / d * 100) : null;
+}
+function buildBarmap(){
+  const map = $('barmap'); map.innerHTML = '';
+  barStarts().forEach(s => {
+    const bar = notes[s].bar;
+    const b = document.createElement('button');
+    b.className = 'bm'; b.dataset.bar = bar; b.title = `从第 ${bar + 1} 小节开始`;
+    const idx = notes.map((n, i) => i).filter(i => notes[i].bar === bar);
+    b.innerHTML = `<span class="h"><span>第 <b>${bar + 1}</b> 小节</span></span>
+      <span class="dots">${idx.map(i => `<i data-i="${i}"></i>`).join('')}</span><span class="pct"></span>`;
+    b.onclick = () => jumpTo(s, `已定位到第 ${bar + 1} 小节`);
+    map.appendChild(b);
+  });
+  const phrases = [];
+  notes.forEach(n => {
+    const p = phrases[phrases.length - 1];
+    if (!p || p.id !== n.phrase_id) phrases.push({id: n.phrase_id, a: n.bar, b: n.bar}); else p.b = n.bar;
+  });
+  $('phraseInfo').textContent = phrases.map((p, k) =>
+    `乐句 ${k + 1}：第 ${p.a + 1}${p.b > p.a ? '–' + (p.b + 1) : ''} 小节`).join('　');
+}
+function drawBarmap(){
+  const cb = curBar();
+  document.querySelectorAll('.bm').forEach(b => {
+    const bar = Number(b.dataset.bar);
+    b.classList.toggle('cur', bar === cb && cursor < notes.length);
+    b.classList.toggle('inloop', loopA != null && loopB != null && bar >= loopA && bar <= loopB);
+    b.querySelectorAll('.dots i').forEach(d => { d.className = statuses[Number(d.dataset.i)] || ''; });
+    const p = barStats(bar);
+    b.querySelector('.pct').textContent = p == null ? '' : `${p}%`;
+  });
+}
+// fretboard: equal-tempered-ish spacing, string 1 (high e) on top like the tab
+let FB = null;
+function buildFretboard(){
+  const maxFret = Math.max(12, ...notes.map(n => n.fret || 0));
+  const W = 360, x0 = 36, x1 = 352, top = 12, gap = 15;
+  const rel = []; let acc = 0;
+  for (let k = 0; k < maxFret; k++){ const w = Math.pow(0.97, k); rel.push(w); acc += w; }
+  const xs = [x0]; rel.forEach(w => xs.push(xs[xs.length - 1] + w / acc * (x1 - x0)));
+  FB = {xs, top, gap, maxFret};
+  const ys = k => top + k * gap;
+  let h = `<rect class="wood" x="${x0}" y="${top - 6}" width="${x1 - x0}" height="${gap * 5 + 12}" rx="6"/>`;
+  [3, 5, 7, 9, 15, 17, 19, 21].filter(f => f <= maxFret).forEach(f =>
+    h += `<circle class="inlay" cx="${(xs[f - 1] + xs[f]) / 2}" cy="${ys(2.5)}" r="4"/>`);
+  [12, 24].filter(f => f <= maxFret).forEach(f => {
+    const cx = (xs[f - 1] + xs[f]) / 2;
+    h += `<circle class="inlay" cx="${cx}" cy="${ys(1.5)}" r="4"/><circle class="inlay" cx="${cx}" cy="${ys(3.5)}" r="4"/>`;
+  });
+  xs.forEach((x, k) => { if (k) h += `<line class="wire" x1="${x}" y1="${top - 4}" x2="${x}" y2="${ys(5) + 4}"/>`; });
+  h += `<line class="nut" x1="${x0}" y1="${top - 5}" x2="${x0}" y2="${ys(5) + 5}"/>`;
+  [1,2,3,4,5,6].forEach((st, k) => {
+    h += `<line class="string" x1="${x0}" y1="${ys(k)}" x2="${x1}" y2="${ys(k)}" stroke-width="${0.8 + k * 0.28}"/>`;
+    h += `<text class="slab" x="4" y="${ys(k) + 3.5}">${openLetter(st, true)}</text>`;
+  });
+  [3, 5, 7, 9, 12, 15, 17, 19, 21, 24].filter(f => f <= maxFret).forEach(f =>
+    h += `<text class="fnum" text-anchor="middle" x="${(xs[f - 1] + xs[f]) / 2}" y="${ys(5) + 20}">${f}</text>`);
+  h += `<g id="fbNextMark"></g><g id="fbTgtMark"></g><g id="fbActMark"></g>`;
+  $('fretboard').innerHTML = h;
+}
+function fretXY(n){
+  if (!FB || !n || n.string == null || n.fret == null) return null;
+  const f = Math.min(n.fret, FB.maxFret);
+  return {x: f === 0 ? FB.xs[0] - 9 : (FB.xs[f - 1] + FB.xs[f]) / 2, y: FB.top + (n.string - 1) * FB.gap, open: f === 0};
+}
+function posLabel(n){
+  if (!n) return '--';
+  const name = n.name || (n.midi != null ? midiName(n.midi) : '');
+  const bits = [];
+  if (n.string != null) bits.push(`${n.string} 弦`);
+  if (n.fret != null) bits.push(`${n.fret} 品`);
+  return [name, bits.join(' ')].filter(Boolean).join(' · ') || '--';
+}
+function sameFingering(a, b){
+  return !!(a && b && a.string === b.string && a.fret != null && a.fret === b.fret);
+}
+function markSvg(p, kind, fret){
+  if (!p) return '';
+  if (kind === 'tgt'){
+    return p.open
+      ? `<circle class="tgt" cx="${p.x}" cy="${p.y}" r="7"/>`
+      : `<circle class="tgt" cx="${p.x}" cy="${p.y}" r="8"/><text class="tgt-txt" text-anchor="middle" x="${p.x}" y="${p.y + 3.5}">${fret}</text>`;
+  }
+  if (kind === 'act'){
+    return p.open
+      ? `<circle class="act" cx="${p.x}" cy="${p.y}" r="6"/>`
+      : `<circle class="act" cx="${p.x}" cy="${p.y}" r="7"/><text class="act-txt" text-anchor="middle" x="${p.x}" y="${p.y + 3.5}">${fret}</text>`;
+  }
+  return p.open
+    ? `<circle class="same-ring" cx="${p.x}" cy="${p.y}" r="8"/><circle class="same-dot" cx="${p.x}" cy="${p.y}" r="4"/>`
+    : `<circle class="same-ring" cx="${p.x}" cy="${p.y}" r="9.5"/><circle class="same-dot" cx="${p.x}" cy="${p.y}" r="6"/><text class="act-txt" text-anchor="middle" x="${p.x}" y="${p.y + 3.5}">${fret}</text>`;
+}
+function drawFretboard(){
+  if (!FB) return;
+  let now = notes[cursor], nx = notes[cursor + 1];
+  let heard = (heardPos && heardPos.fret != null) ? heardPos : null;
+  // after the take ends, keep the last mismatched pair on the board
+  // so 该按 / 按在 stay readable (the last notes of a shifted take may coincide)
+  if (!now && lastDiff){
+    now = lastDiff.target;
+    heard = lastDiff.actual;
+    nx = null;
+  }
+  const p = fretXY(now), q = fretXY(nx);
+  const a = heard ? fretXY(heard) : null;
+  $('fbNextMark').innerHTML = q ? `<circle class="nxt" cx="${q.x}" cy="${q.y}" r="7"/>` : '';
+  if (sameFingering(now, heard) && p){
+    $('fbTgtMark').innerHTML = markSvg(p, 'same', now.fret);
+    $('fbActMark').innerHTML = '';
+  } else {
+    $('fbTgtMark').innerHTML = p ? markSvg(p, 'tgt', now.fret) : '';
+    $('fbActMark').innerHTML = a ? markSvg(a, 'act', heard.fret) : '';
+  }
+  if (notes[cursor]){
+    $('fbNow').textContent = posLabel(now);
+    $('fbHeard').textContent = (heardPos || heard) ? posLabel(heardPos || heard) : '--';
+    $('fbNext').textContent = posLabel(nx);
+  } else {
+    $('fbNow').textContent = now ? posLabel(now) : '本段已完成';
+    $('fbHeard').textContent = heard ? posLabel(heard) : '--';
+    $('fbNext').textContent = '本段已完成';
+  }
+}
+function logVerdict(ev){
+  verdictLog.unshift(ev); verdictLog = verdictLog.slice(0, 6);
+  $('history').innerHTML = verdictLog.map(v => {
+    const n = notes[v.index] || {};
+    const c = v.cents != null ? `${v.cents > 0 ? '+' : ''}${Math.round(v.cents)} 音分` : '';
+    const t = v.delta_ms != null ? `${v.delta_ms > 0 ? '+' : ''}${Math.round(v.delta_ms)} ms` : '';
+    const fing = heardFingering(v);
+    const where = fing ? `${fing.string}弦${fing.fret != null ? fing.fret + '品' : ''}` : '';
+    return `<li><span class="i">#${v.index + 1}</span><span class="n">${esc(n.name || (n.midi != null ? midiName(n.midi) : ''))}</span>` +
+      `<span class="s ${v.status}">${LABELS[v.status] || v.status}</span><span class="c">${[where, c, t].filter(Boolean).join(' · ')}</span></li>`;
+  }).join('');
+}
+
+function showIssues(issues){
+  const pill = $('check');
+  if (!issues.length){
+    pill.textContent = '谱面检查通过'; pill.className = 'ok';
+    $('issues').textContent = '';
+    return;
+  }
+  pill.textContent = `谱面 ${issues.length} 处可疑`; pill.className = 'warn';
+  issues.forEach(it => {
+    if (it.index != null && els[it.index]){
+      els[it.index].classList.add('flagged');
+      els[it.index].title = (els[it.index].title ? els[it.index].title + '\n' : '') + it.message;
+    }
+  });
+  $('issues').textContent = '谱面提示：' + issues.map(it =>
+    (it.index != null ? `#${it.index + 1} ` : (it.bar != null ? `第 ${it.bar + 1} 小节 ` : '')) + it.message).join('；');
+}
+
+const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function midiName(m){ return NAMES[m % 12] + (Math.floor(m / 12) - 1); }
+
+function setFill(input){
+  const min = Number(input.min), max = Number(input.max), v = Number(input.value);
+  input.style.setProperty('--fill', (max > min ? (v - min) / (max - min) * 100 : 0) + '%');
+}
+
+function refresh(){
+  els.forEach((e, i) => {
+    e.classList.toggle('current', i === cursor);
+    e.classList.toggle('next', i === cursor + 1);   // 下一个音提前淡入
+    const b = notes[i].bar;
+    e.classList.toggle('in-loop', loopA != null && loopB != null && b >= loopA && b <= loopB);
+  });
+  if (cursor < els.length) els[cursor].scrollIntoView({inline:'center', block:'nearest', behavior:'smooth'});
+  const bars = barStarts();
+  const bar = curBar();
+  const pos = Math.max(0, bars.findIndex(i => notes[i].bar === bar));
+  if (!scrubbing){
+    $('scrub').value = pos;
+    $('scrubLabel').textContent = `第 ${bar + 1} 小节`;
+  }
+  setFill($('scrub'));
+  $('scrubTicks').querySelectorAll('i').forEach((t, k) => {
+    const b = notes[bars[k]]?.bar;
+    t.classList.toggle('lp', b === loopA || b === loopB);
+  });
+  $('prog').textContent = notes.length ? `${bar + 1}/${notes[notes.length - 1].bar + 1}` : '-';
+  document.querySelectorAll('.bar-line').forEach(l => {
+    const b = Number(l.dataset.bar);
+    l.classList.toggle('loop', b === loopA || (loopB != null && b === loopB + 1));
+    l.classList.toggle('loop-start', loopA != null && loopB != null && b === loopA);
+    l.classList.toggle('loop-end', loopA != null && loopB != null && b === loopB + 1);
+  });
+  const t = notes[cursor];
+  $('target').textContent = t ? `${t.name || midiName(t.midi)}  ${t.string ?? '-'} 弦 ${t.fret ?? '-'} 品` : '本段已完成';
+  stats();
+  drawBarmap();
+  drawFretboard();
+  updateMeta();
+}
+let scrubbing = false;
+
+// 宽松档: 本段准确率 = hit / (hit + wrong_pitch); the rest is listed, not scored
+function stats(){
+  const c = {}; STATUSES.forEach(s => c[s] = 0);
+  statuses.forEach(s => { if (s) c[s]++; });
+  const denom = c.hit + c.wrong_string + c.wrong_pitch;   // string hint = right pitch
+  $('acc').textContent = denom ? `${Math.round((c.hit + c.wrong_string) / denom * 100)}%` : '--';
+  $('nWrong').textContent = c.wrong_pitch;
+  $('nMiss').textContent = c.missed;
+  $('nString').textContent = c.wrong_string;
+}
+
+function paint(index, status){
+  const el = els[index]; if (!el) return;
+  statuses[index] = status;
+  el.classList.remove(...STATUSES);
+  if (status){ el.classList.add(status); }
+  el.querySelector('.mark').textContent = status ? (LABELS[status] || status) : '';
+}
+function clearRange(a, b){ for (let i = a; i <= b && i < els.length; i++) paint(i, null); }
+
+function flash(index, status){
+  const el = els[index]; if (!el) return;
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  // wrong_string in wait mode is a hint, not a completed verdict:
+  // show 弦位不同 in yellow, but leave statuses[] alone so stats and
+  // the cursor do not treat the note as finished.
+  if (status === 'wrong_string'){
+    el.classList.remove(...STATUSES);
+    el.classList.add('wrong_string');
+    const mark = el.querySelector('.mark');
+    if (mark) mark.textContent = LABELS.wrong_string;
+  }
+}
+
+function setStatus(text, live){
+  $('status').textContent = text;
+  $('status').classList.toggle('live', !!live);
+}
+
+// ---------- tuner readout ----------
+function showDetection(ev){
+  $('heardName').textContent = ev.name;
+  $('heardName').classList.remove('idle');
+  const c = Math.max(-50, Math.min(50, ev.cents));
+  $('needle').style.left = `${50 + c}%`;
+  const m = $('meter');
+  m.classList.add('active');
+  m.classList.toggle('on', Math.abs(ev.cents) <= 15);
+  m.classList.toggle('off', Math.abs(ev.cents) > 15);
+  $('cents').textContent = `${ev.cents > 0 ? '+' : ''}${ev.cents.toFixed(0)} 音分`;
+}
+
+// ---------- count-in (visual only) ----------
+let countTimers = [];
+function countIn(beats, seconds){
+  countTimers.forEach(clearTimeout); countTimers = [];
+  const el = $('countin');
+  const step = seconds * 1000 / Math.max(1, beats);
+  for (let k = 0; k < beats; k++){
+    countTimers.push(setTimeout(() => {
+      el.textContent = beats - k; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    }, k * step));
+  }
+  countTimers.push(setTimeout(() => el.classList.remove('show'), seconds * 1000));
+}
+function cancelCountIn(){ countTimers.forEach(clearTimeout); countTimers = []; $('countin').classList.remove('show'); }
+
+// ---------- prompt (non-blocking) ----------
+function showPrompt(ev){
+  promptTarget = ev.target;
+  const p = $('prompt');
+  p.classList.remove('show'); void p.offsetWidth;   // restart the countdown bar
+  p.classList.add('show');
+  clearTimeout(promptTimer);
+  promptTimer = setTimeout(hidePrompt, 6000);   // 不点就当「继续」
+}
+function hidePrompt(){ $('prompt').classList.remove('show'); promptTarget = null; }
+$('promptGo').onclick = hidePrompt;
+$('promptBack').onclick = () => {
+  const target = promptTarget;
+  hidePrompt();
+  if (target == null) return;
+  jumpTo(target, '已退回上一小节');
+};
+
+// ---------- stream ----------
+function onEvent(ev){
+  if (ev.type === 'detection'){
+    $('lat').textContent = `${ev.latency_ms.toFixed(0)} ms`;
+    showDetection(ev);
+    rememberHeard(ev);
+    const arrow = ev.cents > 15 ? '↑' : ev.cents < -15 ? '↓' : '·';
+    const fing = heardFingering(ev);
+    const where = fing ? `  ${fing.string}弦${fing.fret != null ? fing.fret + '品' : ''}` : '';
+    $('ticker').textContent =
+      `${ev.time.toFixed(2)}s  ${ev.name}  ${ev.cents > 0 ? '+' : ''}${ev.cents.toFixed(0)}c ${arrow}${where}`;
+  } else if (ev.type === 'verdict'){
+    const prevBar = curBar();
+    paint(ev.index, ev.status);
+    if (ev.status !== 'skipped') logVerdict(ev);
+    const judged = notes[ev.index];
+    const fing = heardFingering(ev) || heardPos;
+    if (judged && fing && fing.fret != null && !sameFingering(judged, fing))
+      lastDiff = {target: judged, actual: fing};
+    // cursor is about to leave this note: drop the live actual so it
+    // doesn't sit on the next target
+    clearHeard();
+    cursor = ev.index + 1;
+    if (curBar() !== prevBar && promptTarget != null) hidePrompt();
+    refresh();
+  } else if (ev.type === 'flash'){
+    // Never advance. A verdict is the only event that completes a note.
+    // wrong_string (wait mode): stay on this note until the correct string.
+    if (typeof ev.index === 'number' && ev.index >= 0 && ev.index < els.length)
+      cursor = ev.index;
+    flash(ev.index, ev.status);
+    rememberHeard(ev);
+    refresh();
+  } else if (ev.type === 'suggest_back'){
+    showPrompt(ev);
+  } else if (ev.type === 'count_in'){
+    setStatus(mode === 'wait' ? '等待中' : '预备一拍…', true);
+    countIn(ev.beats || 1, ev.seconds);
+    setTimeout(() => { if (playing && mode === 'follow') setStatus('跟弹中', true); },
+               ev.seconds * 1000);
+  } else if (ev.type === 'loop'){
+    const a = ev.index, b = loopEndIndex();
+    clearRange(a, b);
+    cursor = a; refresh();
+  } else if (ev.type === 'hello'){
+    applyHello(ev);
+    if (ev.score){
+      if (ev.score.meter) scoreMeter = ev.score.meter;
+      if (ev.score.tuning){
+        setTuning(ev.score.tuning);
+        paintTuningLabel();
+        relabelOpenStrings();
+      }
+    }
+    if (playing) setStatus(mode === 'wait' ? '等待中：弹对才前进' : (mode === 'follow' ? '跟弹中' : $('status').textContent), true);
+    else if (mode === 'wait') setStatus('等待模式');
+    else setStatus('跟弹模式');
+  } else if (ev.type === 'done'){
+    stopStream();
+    setStatus('本段结束');
+    const c = {}; STATUSES.forEach(s => c[s] = 0); statuses.forEach(s => { if (s) c[s]++; });
+    $('ticker').textContent = `音高偏差 ${c.wrong_pitch} / 漏音 ${c.missed} / 弦位提示 ${c.wrong_string}`;
+    $('session').classList.add('done');
+  }
+}
+function loopEndIndex(){
+  let last = -1; notes.forEach((n, i) => { if (n.bar <= loopB) last = i; }); return last;
+}
+
+function setPlayButton(on){
+  $('playText').textContent = on ? '暂停' : '播放';
+  $('play').classList.toggle('is-playing', on);
+}
+
+function stopStream(){
+  if (es){ es.close(); es = null; }
+  playing = false;
+  cancelCountIn();
+  setPlayButton(false);
+  $('status').classList.remove('live');
+}
+
+function startFrom(from, skipFrom){
+  stopStream();
+  clearHeard();
+  lastDiff = null;
+  playing = true;
+  cursor = from;
+  setPlayButton(true);
+  $('session').classList.remove('done');
+  refresh();
+  const q = new URLSearchParams({from, speed, mode});
+  if (skipFrom != null && skipFrom < from) q.set('skip_from', skipFrom);
+  if (loopA != null && loopB != null){ q.set('loop_a', loopA); q.set('loop_b', loopB); }
+  es = new EventSource('/events?' + q.toString());
+  es.onmessage = e => onEvent(JSON.parse(e.data));
+  es.onerror = () => { if (playing) setStatus('连接断开'); stopStream(); };
+}
+
+function togglePlay(){
+  if (playing){ stopStream(); setStatus('已暂停'); return; }
+  const skipFrom = pendingSkipFrom; pendingSkipFrom = null;
+  startFrom(cursor, skipFrom);
+}
+
+// jump to a note; clears colours from there on. Keeps playing if it was.
+function jumpTo(index, label){
+  const was = playing;
+  stopStream();
+  clearHeard();
+  lastDiff = null;
+  pendingSkipFrom = null;
+  cursor = index;
+  clearRange(index, els.length - 1);
+  refresh();
+  setStatus(label);
+  if (was) startFrom(index);
+}
+
+$('play').onclick = togglePlay;
+$('back').onclick = () => {
+  const dest = rewindTo(cursor);
+  jumpTo(dest, dest === 0 ? '已在第一小节开头' : '已回到小节开头');
+};
+$('fwd').onclick = () => {
+  const was = playing, from = cursor;
+  const {dest, skipped} = advanceFrom(cursor);
+  stopStream();
+  skipped.forEach(i => { if (!statuses[i]) paint(i, 'skipped'); });
+  cursor = dest;
+  if (dest >= notes.length){ refresh(); setStatus('已到结尾'); return; }
+  refresh();
+  setStatus('已跳到下一小节');
+  if (was) startFrom(dest, from); else pendingSkipFrom = skipped.length ? from : null;
+};
+$('scrub').onchange = ev => {
+  scrubbing = false;
+  $('scrubLabel').classList.remove('dragging');
+  const i = barStarts()[Number(ev.target.value)] ?? 0;
+  jumpTo(i, `已定位到第 ${notes[i].bar + 1} 小节`);
+};
+$('scrub').oninput = ev => {
+  scrubbing = true;
+  $('scrubLabel').classList.add('dragging');
+  setFill(ev.target);
+  const i = barStarts()[Number(ev.target.value)] ?? 0;
+  $('scrubLabel').textContent = `第 ${notes[i].bar + 1} 小节`;
+};
+
+// 跟弹 / 等待: takes effect from the pending note; colours stay, no rewind
+function paintMode(){
+  $('mode').textContent = mode === 'follow' ? '跟弹' : '等待';
+  $('mode').classList.toggle('on', mode === 'wait');
+  $('seg').dataset.mode = mode;
+  $('seg').querySelectorAll('span').forEach(s => s.classList.toggle('active', s.dataset.m === mode));
+  updateMeta();
+}
+$('mode').onclick = () => {
+  mode = mode === 'follow' ? 'wait' : 'follow';
+  paintMode();
+  hidePrompt();
+  if (playing) startFrom(cursor);   // 切回跟弹时服务端给 1 拍预备
+  else setStatus(mode === 'follow' ? '跟弹模式' : '等待模式');
+};
+$('seg').querySelectorAll('span').forEach(s => s.addEventListener('click', ev => {
+  ev.preventDefault();
+  if (s.dataset.m !== mode) $('mode').click();
+}));
+
+// A-B loop on bar lines
+function setLoop(){
+  if (loopA != null && loopB != null && loopB < loopA) [loopA, loopB] = [loopB, loopA];
+  $('setA').textContent = loopA != null ? `A:${loopA + 1}` : 'A';
+  $('setB').textContent = loopB != null ? `B:${loopB + 1}` : 'B';
+  $('setA').classList.toggle('on', loopA != null);
+  $('setB').classList.toggle('on', loopB != null);
+  $('loopInfo').textContent = loopA != null && loopB != null
+    ? `第 ${loopA + 1}–${loopB + 1} 小节` : '未设';
+  refresh();
+  if (playing) startFrom(cursor);
+}
+$('setA').onclick = () => { loopA = curBar(); if (loopB == null) loopB = loopA; setLoop(); };
+$('setB').onclick = () => { loopB = curBar(); if (loopA == null) loopA = 0; setLoop(); };
+$('clearLoop').onclick = () => { loopA = loopB = null; setLoop(); };
+
+$('speed').oninput = ev => { setFill(ev.target); $('speedLabel').textContent = `${Number(ev.target.value).toFixed(2)}x`; };
+$('speed').onchange = ev => {
+  speed = Number(ev.target.value);
+  $('speedNow').textContent = `${speed.toFixed(2)}x`;
+  updateMeta();
+  if (playing) startFrom(cursor);
+};
+setFill($('speed')); setFill($('scrub'));
+$('ruler').innerHTML = Array.from({length: 11}, (_, k) =>
+  `<i class="${k % 5 === 0 ? 'big' : ''}" style="left:${k * 10}%"></i>`).join('');
+
+// keyboard: space = 播放/暂停, ← = 后退, → = 快进 (not while a control has focus)
+document.addEventListener('keydown', ev => {
+  const tag = (ev.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'button' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (ev.code === 'Space'){ ev.preventDefault(); togglePlay(); }
+  else if (ev.key === 'ArrowLeft'){ ev.preventDefault(); $('back').click(); }
+  else if (ev.key === 'ArrowRight'){ ev.preventDefault(); $('fwd').click(); }
+});
+
+fetch('/score').then(r => r.json()).then(score => {
+  cursor = 0;
+  applyDefaults(score.defaults);
+  showInputWarning(score.input);
+  build(score);
+});
+if (new URLSearchParams(location.search).has('auto')) setTimeout(togglePlay, 300);
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[project]
+name = "guitar-coach"
+version = "0.1.0"
+description = "Guitar tab follow-along engine: score IR, pitch detection, lenient judging"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+guitarcoach = ["ui/index.html"]

@@ -1,0 +1,159 @@
+{
+  "title": "G 弦音阶走句",
+  "tempo": 80.0,
+  "meter": "4/4",
+  "tuning": {
+    "6": 40,
+    "5": 45,
+    "4": 50,
+    "3": 55,
+    "2": 59,
+    "1": 64
+  },
+  "notes": [
+    {
+      "start": 0.0,
+      "dur": 0.75,
+      "midi": 55,
+      "string": 3,
+      "fret": 0,
+      "bar": 0,
+      "phrase_id": 0
+    },
+    {
+      "start": 0.75,
+      "dur": 0.75,
+      "midi": 57,
+      "string": 3,
+      "fret": 2,
+      "bar": 0,
+      "phrase_id": 0
+    },
+    {
+      "start": 1.5,
+      "dur": 0.75,
+      "midi": 59,
+      "string": 3,
+      "fret": 4,
+      "bar": 0,
+      "phrase_id": 0
+    },
+    {
+      "start": 2.25,
+      "dur": 0.75,
+      "midi": 60,
+      "string": 3,
+      "fret": 5,
+      "bar": 0,
+      "phrase_id": 0
+    },
+    {
+      "start": 3.0,
+      "dur": 0.75,
+      "midi": 62,
+      "string": 3,
+      "fret": 7,
+      "bar": 1,
+      "phrase_id": 0
+    },
+    {
+      "start": 3.75,
+      "dur": 0.75,
+      "midi": 64,
+      "string": 3,
+      "fret": 9,
+      "bar": 1,
+      "phrase_id": 0
+    },
+    {
+      "start": 4.5,
+      "dur": 0.75,
+      "midi": 65,
+      "string": 3,
+      "fret": 10,
+      "bar": 1,
+      "phrase_id": 0
+    },
+    {
+      "start": 5.25,
+      "dur": 0.75,
+      "midi": 67,
+      "string": 3,
+      "fret": 12,
+      "bar": 1,
+      "phrase_id": 0
+    },
+    {
+      "start": 6.0,
+      "dur": 0.75,
+      "midi": 67,
+      "string": 3,
+      "fret": 12,
+      "bar": 2,
+      "phrase_id": 1
+    },
+    {
+      "start": 6.75,
+      "dur": 0.75,
+      "midi": 65,
+      "string": 3,
+      "fret": 10,
+      "bar": 2,
+      "phrase_id": 1
+    },
+    {
+      "start": 7.5,
+      "dur": 0.75,
+      "midi": 64,
+      "string": 3,
+      "fret": 9,
+      "bar": 2,
+      "phrase_id": 1
+    },
+    {
+      "start": 8.25,
+      "dur": 0.75,
+      "midi": 62,
+      "string": 3,
+      "fret": 7,
+      "bar": 2,
+      "phrase_id": 1
+    },
+    {
+      "start": 9.0,
+      "dur": 0.75,
+      "midi": 60,
+      "string": 3,
+      "fret": 5,
+      "bar": 3,
+      "phrase_id": 1
+    },
+    {
+      "start": 9.75,
+      "dur": 0.75,
+      "midi": 59,
+      "string": 3,
+      "fret": 4,
+      "bar": 3,
+      "phrase_id": 1
+    },
+    {
+      "start": 10.5,
+      "dur": 0.75,
+      "midi": 57,
+      "string": 3,
+      "fret": 2,
+      "bar": 3,
+      "phrase_id": 1
+    },
+    {
+      "start": 11.25,
+      "dur": 0.75,
+      "midi": 55,
+      "string": 3,
+      "fret": 0,
+      "bar": 3,
+      "phrase_id": 1
+    }
+  ]
+}
